@@ -1,0 +1,25 @@
+
+1) Global Workflow
+Trigger: a new video dropped in source video S3 location (putObject)
+Steps: 
+ a. extract still images (1s interval) from video
+ b. store images in destination images S3 location
+ c. build file listing all images in video in chronological order and store on S3 destination images S3 location
+ d. analyse images (see detailed workflow below)
+
+Implementation: StepFunctions workflow
+- (step a) Lambda function triggered by S3 putObject event (EventBridge) when video is dropped in specific bucket
+- (step b+c+d) StepFunctions workflow execution 
+
+2) Image analysis Workflow
+Trigger: a new video image list file dropped in source image S3 bucket (putObject)
+Steps:
+- (parallel) use LLM to analyze images in sets of 20 images at a time
+- (aggregate) build the final analysis with LLM using the analyses made above
+- store image analysis in destination analysis location on S3
+
+use Map for this image analysis workflow to process files in parallel
+Map in inline mode is probably good enough (with a limitation of max 40 parallel execution, that's 20x40=600 images processed in parallel or the equivalent of 10 minutes of videos with a 1s-sampling)
+
+3) Gather and regroup
+After the parallel processing of image analysis (distributed map), collect the output and create the final summary analysis.

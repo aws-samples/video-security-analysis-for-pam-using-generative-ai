@@ -1,0 +1,40 @@
+
+# Invoking function with event file
+(shell-prompt)> sam local invoke "Ratings" -e event.json
+
+# Invoking function with event via stdin
+(shell-prompt)> echo '{"message": "Hey, are you there?" }' | sam local invoke --event -
+
+# Invoking function defined using CDK (you need to specify the synthesized template)
+(shell-prompt)> sam local invoke -t cdk.out/PAMVideoAnalysis.template.json  ImageAnalysisFunction
+
+# And all (together CDK + event file)
+(shell-prompt)> sam local invoke -t cdk.out/PAMVideoAnalysis.template.json -e tests/image_analysis_event.json ImageAnalysisFunction
+
+###########################
+# Troubleshooting 'sam local'
+Docker is required to make sam local work. On MacOS, Docker install seems to have multiple contexts and that may cause SAM to be confused. 
+Check it out with:
+(shell-prompt)> docker info
+Client:
+ Version:    27.1.1
+ Context:    desktop-linux <------ note the actual context of the running Docker endpoint
+ Debug Mode: false
+ Plugins:
+ ... 
+
+and compare with the output from
+(shell-prompt)> docker context ls
+NAME              DESCRIPTION                               DOCKER ENDPOINT                               ERROR
+default           Current DOCKER_HOST based configuration   unix:///var/run/docker.sock                   
+desktop-linux *   Docker Desktop                            unix:///Users/toto/.docker/run/docker.sock   
+
+sam local will automatically use Docker's default context and fail b/c it's different from the context of our running Docker endpoint ("desktop-linux" from 'docker info' command)
+
+To make it work, simply run the sam local command like the following (avoid changing DOCKER_HOST globally as it seems to have sometimes some unexpected side effects)
+(shell-prompt)> DOCKER_HOST=unix:///Users/toto/.docker/run/docker.sock sam local invoke ...
+so DOCKER_HOST is set properly in the same shell where sam local executes
+
+It can also be automated using jq as follows 
+(shell-prompt)> DOCKER_HOST=$(docker context ls --format 'json' | jq -r 'select(.Name == "desktop-linux") | .DockerEndpoint') sam local invoke ...
+
